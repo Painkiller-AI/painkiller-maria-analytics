@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import boto3
 import requests as re
@@ -11,8 +11,6 @@ from loggers import get_logger
 AWS_ACCESS_KEY_ID = os.environ["AWS_ACCESS_KEY_ID"]
 AWS_SECRET_ACCESS_KEY = os.environ["AWS_SECRET_ACCESS_KEY"]
 API_KEY_NABLA = os.environ["API_KEY_NABLA"]
-
-BUCKET_NAME = "nablalog"
 
 headers = {
     "Accept": "application/json",
@@ -49,20 +47,25 @@ def get_nabla_data(
     bucket_name: str,
     entity: Optional[str] = None,
     req_headers: Dict[str, str] = headers,
+    req_field: str = "data",
     url_sep: str = "?",
+    iterate: bool = True,
+    save_to_s3: bool = True,
 ) -> list:
     req = re.get(url, headers=req_headers).json()
-    data = [req["data"]]
+    data = [req[req_field]]
 
     s3 = get_client()
 
     if len(data[0]) > 0:
-        save_data(s3, bucket_name, entity, data[0])
-        while req["has_more"]:
+        if save_to_s3:
+            save_data(s3, bucket_name, entity, data[0])
+        while req["has_more"] and iterate:
             cursor = req["next_cursor"]
             req = re.get(url + url_sep + "cursor=" + str(cursor), headers=req_headers).json()
-            data_cursor = req["data"]
-            save_data(s3, bucket_name, entity, data_cursor)
+            data_cursor = req[req_field]
+            if save_to_s3:
+                save_data(s3, bucket_name, entity, data_cursor)
             data.append(data_cursor)
 
     return data
@@ -97,3 +100,32 @@ def get_incremental_nabla_data(
         Key="max_date.txt",
         Body=recent_date.isoformat(),
     )
+
+
+def get_files(s3, prefix: str, bucket_name: str) -> list:
+    s3_result = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+
+    if "Contents" not in s3_result:
+        return []
+
+    file_list = []
+    for key in s3_result["Contents"]:
+        file_list.append(key["Key"])
+
+    while s3_result["IsTruncated"]:
+        continuation_key = s3_result["NextContinuationToken"]
+        s3_result = s3.list_objects_v2(
+            Bucket=bucket_name, Prefix=prefix, Delimiter="/", ContinuationToken=continuation_key
+        )
+        for key in s3_result["Contents"]:
+            file_list.append(key["Key"])
+    log.info("List count = %s", len(file_list))
+    return file_list
+
+
+def get_s3_data(s3, key: str, bucket_name: str, fields: List[str]) -> dict:
+    result = s3.get_object(Bucket=bucket_name, Key=key)
+    result = result["Body"].read().decode()
+    result = json.loads(result)
+
+    return dict((k, v) for k, v in result.items() if k in fields)
