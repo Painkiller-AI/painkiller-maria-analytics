@@ -6,7 +6,6 @@ name = "pypi"
 [packages]
 pandas = "~=1.5"
 boto3 = "~=1.26"
-pygsheets = "~=2.0"
 
 [dev-packages]
 pre-commit = ">=3.0,<4"
