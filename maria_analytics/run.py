@@ -1,11 +1,9 @@
 import os
 from io import StringIO
-from itertools import compress
 from pathlib import Path
 from typing import Dict
 
 import pandas as pd
-import requests as re
 from loaders import (
     get_client,
     get_files,
