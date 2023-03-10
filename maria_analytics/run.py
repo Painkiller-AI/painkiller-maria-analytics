@@ -1,4 +1,4 @@
-import json
+import os
 from io import StringIO
 from itertools import compress
 from pathlib import Path
@@ -15,8 +15,8 @@ from loaders import (
 )
 from loggers import get_logger
 
-BUCKET_NAME = "nablalog"
-ANALYTICS_BUCKET_NAME = "nablaanalyticsv0"
+BUCKET_NAME = os.getenv("BUCKET_NAME", "nablalog")
+ANALYTICS_BUCKET_NAME = os.getenv("ANALYTICS_BUCKET_NAME", "nablaanalyticsv0")
 
 log = get_logger(Path(__file__).stem)
 
