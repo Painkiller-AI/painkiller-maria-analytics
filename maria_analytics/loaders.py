@@ -53,20 +53,20 @@ def get_nabla_data(
     save_to_s3: bool = True,
 ) -> list:
     req = re.get(url, headers=req_headers).json()
-    data = [req[req_field]]
+    data = req[req_field]
 
     s3 = get_client()
 
-    if len(data[0]) > 0:
+    if len(data) > 0:
         if save_to_s3:
-            save_data(s3, bucket_name, entity, data[0])
+            save_data(s3, bucket_name, data, entity)
         while req["has_more"] and iterate:
             cursor = req["next_cursor"]
             req = re.get(url + url_sep + "cursor=" + str(cursor), headers=req_headers).json()
             data_cursor = req[req_field]
             if save_to_s3:
-                save_data(s3, bucket_name, entity, data_cursor)
-            data.append(data_cursor)
+                save_data(s3, bucket_name, data_cursor, entity)
+            data += data_cursor
 
     return data
 
@@ -80,8 +80,30 @@ def get_incremental_nabla_data(
     bucket_name: str,
     req_headers: Dict[str, str] = headers,
 ):
+    max_date_filename = "max_date.txt"
     s3 = get_client()
-    last_date = s3.get_object(Bucket=bucket_name, Key="max_date.txt")["Body"].read().decode("utf-8")
+    s3_max_date_file = s3.list_objects_v2(
+        Bucket=bucket_name, Prefix=max_date_filename, Delimiter="/"
+    )
+    if "Contents" in s3_max_date_file:
+        last_date = (
+            s3.get_object(Bucket=bucket_name, Key=max_date_filename)["Body"].read().decode("utf-8")
+        )
+    else:
+        last_date = datetime(
+            year=2020,
+            month=1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+        ).isoformat()
+        s3.put_object(
+            Bucket=bucket_name,
+            Key=max_date_filename,
+            Body=last_date,
+        )
+
     url += last_date
 
     nabla_data = get_nabla_data(
@@ -97,7 +119,7 @@ def get_incremental_nabla_data(
     log.info("Most recent date scraped: %s", recent_date.isoformat())
     s3.put_object(
         Bucket=bucket_name,
-        Key="max_date.txt",
+        Key=max_date_filename,
         Body=recent_date.isoformat(),
     )
 
