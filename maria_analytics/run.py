@@ -25,15 +25,14 @@ def save_patients_analytics(
 ):
     s3 = get_client()
     s3_data = get_files(s3, "patients/", bucket_name)
-    patients_id_loaded = [Path(f).stem for f in s3_data]
 
     patient_data = [
         get_s3_data(s3, patient, bucket_name, ["id", "created_at", "date_of_birth", "sex"])
-        for patient in patients_id_loaded
+        for patient in s3_data
     ]
     patient_df = pd.DataFrame(patient_data)
 
-    def medical_records(id, bucket_name: str):
+    def medical_records(id, bucket_name: str = bucket_name):
         result = get_nabla_data(
             url=f"https://api.nabla.com/v1/server/patients/{id}/medical_data",
             bucket_name=bucket_name,
@@ -41,12 +40,12 @@ def save_patients_analytics(
             iterate=False,
             save_to_s3=False,
         )
-        return result[0]["total_count"]
+        return result
 
     patient_df["medical_records"] = patient_df["id"].apply(medical_records)
 
     csv_buf = StringIO()
-    patient_data.to_csv(csv_buf, header=True, index=False)
+    patient_df.to_csv(csv_buf, header=True, index=False)
     csv_buf.seek(0)
     s3.put_object(Bucket=analytics_bucket_name, Body=csv_buf.getvalue(), Key="patients.csv")
     log.info("Saved patients file to Analytics Bucket")
@@ -58,10 +57,9 @@ def save_providers_analytics(
 ):
     s3 = get_client()
     s3_data = get_files(s3, "prodviders/", bucket_name)
-    providers_id_loaded = [Path(f).stem for f in s3_data]
 
     provider_data = [
-        get_s3_data(s3, provider, bucket_name, ["id", "title"]) for provider in providers_id_loaded
+        get_s3_data(s3, provider, bucket_name, ["id", "title"]) for provider in s3_data
     ]
     provider_df = pd.DataFrame(provider_data)
     csv_buf = StringIO()
@@ -93,7 +91,6 @@ def save_messages_analytics(
 ):
     s3 = get_client()
     s3_data = get_files(s3, "conversation/message/created/", bucket_name)
-    msgs_id_loaded = [Path(f).stem for f in s3_data]
 
     msg_data = [
         get_data_msg(
@@ -101,7 +98,7 @@ def save_messages_analytics(
             msg,
             bucket_name,
         )
-        for msg in msgs_id_loaded
+        for msg in s3_data
     ]
     msg_data = [item for item in msg_data if item is not None]
     msg_df = pd.DataFrame(msg_data)
@@ -132,9 +129,8 @@ def save_video_analytics(
 ):
     s3 = get_client()
     s3_data = get_files(s3, "appointment/completed/", bucket_name)
-    video_id_loaded = [Path(f).stem for f in s3_data]
 
-    video_data = [get_data_video(s3, video, bucket_name) for video in video_id_loaded]
+    video_data = [get_data_video(s3, video, bucket_name) for video in s3_data]
     video_data = [item for item in video_data if item is not None]
     video_df = pd.DataFrame(video_data)
     csv_buf = StringIO()
@@ -145,7 +141,7 @@ def save_video_analytics(
 
 
 def get_data_conversation(s3, key, bucket_name: str):
-    result = get_s3_data(s3, key, bucket_name)
+    result = get_s3_data(s3, key, bucket_name, ["data"])
     try:
         return {
             "conversation_id": result["data"]["id"],
@@ -161,9 +157,8 @@ def save_conversation_analytics(
 ):
     s3 = get_client()
     s3_data = get_files(s3, "conversation/created/", bucket_name)
-    conv_id_loaded = [Path(f).stem for f in s3_data]
 
-    conv_data = [get_data_conversation(s3, conv, bucket_name) for conv in conv_id_loaded]
+    conv_data = [get_data_conversation(s3, conv, bucket_name) for conv in s3_data]
     conv_data = [item for item in conv_data if item is not None]
     conv_df = pd.DataFrame(conv_data)
     csv_buf = StringIO()

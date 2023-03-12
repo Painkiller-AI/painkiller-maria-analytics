@@ -34,7 +34,7 @@ def get_client(
 
 def save_data(s3, bucket_name: str, data: Dict[str, str], entity: Optional[str] = None):
     for item in data:
-        entity_name = entity or item["type"]
+        entity_name = entity or item["type"].replace(".", "/")
         s3.put_object(
             Bucket=bucket_name,
             Key=f"{entity_name}/{item['id']}.json",
@@ -57,7 +57,7 @@ def get_nabla_data(
 
     s3 = get_client()
 
-    if len(data) > 0:
+    if data:
         if save_to_s3:
             save_data(s3, bucket_name, data, entity)
         while req["has_more"] and iterate:
