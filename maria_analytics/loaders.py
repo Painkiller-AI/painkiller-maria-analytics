@@ -52,18 +52,20 @@ def get_nabla_data(
     iterate: bool = True,
     save_to_s3: bool = True,
 ) -> list:
-    req = re.get(url, headers=req_headers).json()
-    data = req[req_field]
+    req = re.get(url, headers=req_headers)
+    req_json = req.json()
+    data = req_json[req_field]
 
     s3 = get_client()
 
     if data:
         if save_to_s3:
             save_data(s3, bucket_name, data, entity)
-        while req["has_more"] and iterate:
-            cursor = req["next_cursor"]
-            req = re.get(url + url_sep + "cursor=" + str(cursor), headers=req_headers).json()
-            data_cursor = req[req_field]
+        while req_json["has_more"] and iterate:
+            cursor = req_json["next_cursor"]
+            req = re.get(url + url_sep + "cursor=" + str(cursor), headers=req_headers)
+            req_json = req.json()
+            data_cursor = req_json[req_field]
             if save_to_s3:
                 save_data(s3, bucket_name, data_cursor, entity)
             data += data_cursor

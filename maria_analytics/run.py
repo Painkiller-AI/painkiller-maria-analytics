@@ -1,5 +1,6 @@
 import os
 from io import StringIO
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Dict
 
@@ -19,54 +20,41 @@ ANALYTICS_BUCKET_NAME = os.getenv("ANALYTICS_BUCKET_NAME", "nablaanalyticsv0")
 log = get_logger(Path(__file__).stem)
 
 
-def save_patients_analytics(
+def get_patients_medical_records_amount(
     bucket_name: str = BUCKET_NAME,
     analytics_bucket_name: str = ANALYTICS_BUCKET_NAME,
 ):
     s3 = get_client()
     s3_data = get_files(s3, "patients/", bucket_name)
+    patients_id = [Path(f).stem for f in s3_data]
 
-    patient_data = [
-        get_s3_data(s3, patient, bucket_name, ["id", "created_at", "date_of_birth", "sex"])
-        for patient in s3_data
-    ]
-    patient_df = pd.DataFrame(patient_data)
+    patient_df = pd.DataFrame(data=patients_id, columns=["id"])
 
     def medical_records(id, bucket_name: str = bucket_name):
-        result = get_nabla_data(
-            url=f"https://api.nabla.com/v1/server/patients/{id}/medical_data",
-            bucket_name=bucket_name,
-            req_field="total_count",
-            iterate=False,
-            save_to_s3=False,
-        )
+        try:
+            result = get_nabla_data(
+                url=f"https://api.nabla.com/v1/server/patients/{id}/medical_data",
+                bucket_name=bucket_name,
+                req_field="total_count",
+                iterate=False,
+                save_to_s3=False,
+            )
+        except JSONDecodeError:
+            log.debug("Unknown patient found in history but was probably deleted")
+            result = 0
         return result
 
     patient_df["medical_records"] = patient_df["id"].apply(medical_records)
 
-    csv_buf = StringIO()
-    patient_df.to_csv(csv_buf, header=True, index=False)
-    csv_buf.seek(0)
-    s3.put_object(Bucket=analytics_bucket_name, Body=csv_buf.getvalue(), Key="patients.csv")
+    string_buffer = StringIO()
+    patient_df.to_json(string_buffer, orient="records", lines=True)
+    string_buffer.seek(0)
+    s3.put_object(
+        Bucket=analytics_bucket_name,
+        Body=string_buffer.getvalue(),
+        Key="medical_records/medical_records.json",
+    )
     log.info("Saved patients file to Analytics Bucket")
-
-
-def save_providers_analytics(
-    bucket_name: str = BUCKET_NAME,
-    analytics_bucket_name: str = ANALYTICS_BUCKET_NAME,
-):
-    s3 = get_client()
-    s3_data = get_files(s3, "prodviders/", bucket_name)
-
-    provider_data = [
-        get_s3_data(s3, provider, bucket_name, ["id", "title"]) for provider in s3_data
-    ]
-    provider_df = pd.DataFrame(provider_data)
-    csv_buf = StringIO()
-    provider_df.to_csv(csv_buf, header=True, index=False)
-    csv_buf.seek(0)
-    s3.put_object(Bucket=analytics_bucket_name, Body=csv_buf.getvalue(), Key="providers.csv")
-    log.info("Saved providers file to Analytics Bucket")
 
 
 def get_data_msg(s3, key: str, bucket_name: str) -> Dict[str, str]:
@@ -102,10 +90,14 @@ def save_messages_analytics(
     ]
     msg_data = [item for item in msg_data if item is not None]
     msg_df = pd.DataFrame(msg_data)
-    csv_buf = StringIO()
-    msg_df.to_csv(csv_buf, header=True, index=False)
-    csv_buf.seek(0)
-    s3.put_object(Bucket=analytics_bucket_name, Body=csv_buf.getvalue(), Key="messages.csv")
+    string_buffer = StringIO()
+    msg_df.to_json(string_buffer, orient="records", lines=True)
+    string_buffer.seek(0)
+    s3.put_object(
+        Bucket=analytics_bucket_name,
+        Body=string_buffer.getvalue(),
+        Key="messages_analytics/messages.json",
+    )
     log.info("Saved messages file to Analytics Bucket")
 
 
@@ -133,10 +125,14 @@ def save_video_analytics(
     video_data = [get_data_video(s3, video, bucket_name) for video in s3_data]
     video_data = [item for item in video_data if item is not None]
     video_df = pd.DataFrame(video_data)
-    csv_buf = StringIO()
-    video_df.to_csv(csv_buf, header=True, index=False)
-    csv_buf.seek(0)
-    s3.put_object(Bucket=analytics_bucket_name, Body=csv_buf.getvalue(), Key="videos.csv")
+    string_buffer = StringIO()
+    video_df.to_json(string_buffer, orient="records", lines=True)
+    string_buffer.seek(0)
+    s3.put_object(
+        Bucket=analytics_bucket_name,
+        Body=string_buffer.getvalue(),
+        Key="videos_analytics/videos.json",
+    )
     log.info("Saved videos file to Analytics Bucket")
 
 
@@ -161,10 +157,14 @@ def save_conversation_analytics(
     conv_data = [get_data_conversation(s3, conv, bucket_name) for conv in s3_data]
     conv_data = [item for item in conv_data if item is not None]
     conv_df = pd.DataFrame(conv_data)
-    csv_buf = StringIO()
-    conv_df.to_csv(csv_buf, header=True, index=False)
-    csv_buf.seek(0)
-    s3.put_object(Bucket=analytics_bucket_name, Body=csv_buf.getvalue(), Key="conversations.csv")
+    string_buffer = StringIO()
+    conv_df.to_json(string_buffer, orient="records", lines=True)
+    string_buffer.seek(0)
+    s3.put_object(
+        Bucket=analytics_bucket_name,
+        Body=string_buffer.getvalue(),
+        Key="conversation_analytics/conversations.json",
+    )
     log.info("Saved conversation file to Analytics Bucket")
 
 
@@ -190,8 +190,7 @@ if __name__ == "__main__":
         entity="providers",
     )
     log.info("Finished providers")
-    save_patients_analytics()
-    save_providers_analytics()
+    get_patients_medical_records_amount()
     save_messages_analytics()
     save_video_analytics()
     save_conversation_analytics()
