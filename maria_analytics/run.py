@@ -50,7 +50,7 @@ def get_patients_medical_records_amount(
     log.info("Saved medical_records file to Analytics Bucket")
 
 
-if __name__ == "__main__":
+def lambda_executor():
     log.info("Starting Nabla Analytical Extraction")
     log.info("Getting webhook events")
     get_incremental_nabla_data(
@@ -73,3 +73,8 @@ if __name__ == "__main__":
     )
     log.info("Finished providers")
     get_patients_medical_records_amount()
+    return {"statusCode": 200}
+
+
+if __name__ == "__main__":
+    lambda_executor()
