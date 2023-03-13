@@ -1,6 +1,7 @@
-CREATE EXTERNAL TABLE IF NOT EXISTS `maria_analytics_prd`.`conversation` (
-  `conversation_id` string,
-  `patient_id` string
+CREATE EXTERNAL TABLE IF NOT EXISTS `maria_analytics_dev`.`conversation` (
+  `data` struct<`id`:string,
+                `patients`:array<struct<`id`:string>>
+                >
 )
 ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
 WITH SERDEPROPERTIES (
@@ -10,5 +11,5 @@ WITH SERDEPROPERTIES (
   'mapping' = 'TRUE'
 )
 STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
-LOCATION 's3://nabla-analytics-dev/conversation_analytics/'
+LOCATION 's3://nabla-analytics-dev/conversation/created/'
 TBLPROPERTIES ('classification' = 'json');

@@ -1,4 +1,4 @@
-CREATE EXTERNAL TABLE IF NOT EXISTS `maria_analytics_prd`.`medical_records` (
+CREATE EXTERNAL TABLE IF NOT EXISTS `maria_analytics_dev`.`medical_records` (
   `id` string,
   `medical_records` string
 )

@@ -1,9 +1,10 @@
-CREATE EXTERNAL TABLE IF NOT EXISTS `maria_analytics_prd`.`videos` (
+CREATE EXTERNAL TABLE IF NOT EXISTS `maria_analytics_dev`.`videos` (
   `id` string,
-  `start_at` string,
-  `patient` string,
-  `provider` string,
-  `finish_at` string
+  `created_at` string,
+  `data` struct<`start_at`:string,
+                `patient`:struct<`id`:string>,
+                `provider`:struct<`id`:string>
+                >
 )
 ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
 WITH SERDEPROPERTIES (
@@ -13,5 +14,5 @@ WITH SERDEPROPERTIES (
   'mapping' = 'TRUE'
 )
 STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
-LOCATION 's3://nabla-analytics-dev/videos_analytics/'
+LOCATION 's3://nabla-analytics-dev/appointment/completed/'
 TBLPROPERTIES ('classification' = 'json');
