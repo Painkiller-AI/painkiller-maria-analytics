@@ -143,13 +143,5 @@ def get_files(s3, prefix: str, bucket_name: str) -> list:
         )
         for key in s3_result["Contents"]:
             file_list.append(key["Key"])
-    log.info("List count = %s", len(file_list))
+    log.info("%s files found in %s", len(file_list), prefix)
     return file_list
-
-
-def get_s3_data(s3, key: str, bucket_name: str, fields: List[str]) -> dict:
-    result = s3.get_object(Bucket=bucket_name, Key=key)
-    result = result["Body"].read().decode()
-    result = json.loads(result)
-
-    return dict((k, v) for k, v in result.items() if k in fields)
